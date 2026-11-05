@@ -1,0 +1,6 @@
+{
+  "name": "JIT PREDICTION",
+  "description": "Advanced AI-Powered Indian Stock Market 15-Minute Advance Prediction App for NIFTY 50 and BANK NIFTY with real-time technical analysis, synchronized dual charts, and verifiable accuracy tracking.",
+  "requestFramePermissions": ["notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
