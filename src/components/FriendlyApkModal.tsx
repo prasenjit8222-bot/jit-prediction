@@ -75,7 +75,7 @@ export const FriendlyApkModal: React.FC<FriendlyApkModalProps> = ({
           {/* Big Download Button */}
           <div className="space-y-2">
             <a
-              href="/api/download/apk"
+              href="/downloads/JIT_PREDICTION_Universal.apk"
               download="JIT_PREDICTION_Universal.apk"
               onClick={handleDownload}
               className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm sm:text-base flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/25 transition-all transform hover:scale-[1.02] cursor-pointer"

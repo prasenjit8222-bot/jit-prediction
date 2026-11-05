@@ -48,18 +48,21 @@ export const AdvancedAnalysisSection: React.FC<AdvancedAnalysisSectionProps> = (
   } | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
 
-  // Fetch AI analysis from server endpoint (Gemini 3.8 Flash backed)
+  // Fetch AI analysis directly from client Gemini SDK / local quantitative engine
   const fetchAiAnalysis = async () => {
-    if (!prediction) return;
+    if (!prediction || !indicators || !srLevels || !priceAction) return;
     setLoadingAi(true);
     try {
-      const res = await fetch(`/api/market/ai-analysis?symbol=${encodeURIComponent(symbol)}&timeframe=${prediction.timeframe}`);
-      const data = await res.json();
-      if (data.success && data.analysis) {
-        setAiAnalysis(data.analysis);
-      }
-    } catch (err) {
-      console.warn('AI analysis fetch error:', err);
+      const { generateClientMarketExplanation } = await import('../utils/geminiClientService.js');
+      const analysis = await generateClientMarketExplanation(
+        prediction,
+        indicators,
+        srLevels,
+        priceAction
+      );
+      setAiAnalysis(analysis);
+    } catch {
+      // safe fallback
     } finally {
       setLoadingAi(false);
     }

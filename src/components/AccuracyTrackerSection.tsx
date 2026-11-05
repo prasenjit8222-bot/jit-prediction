@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import type { AccuracyStats, PredictionResult } from '../types.js';
 
+import { getLocalAccuracyData } from '../utils/accuracyService.js';
+
 export const AccuracyTrackerSection: React.FC = () => {
   const [stats, setStats] = useState<AccuracyStats | null>(null);
   const [history, setHistory] = useState<PredictionResult[]>([]);
@@ -22,24 +24,21 @@ export const AccuracyTrackerSection: React.FC = () => {
   const [filterOutcome, setFilterOutcome] = useState<'ALL' | 'WIN' | 'LOSS' | 'PENDING'>('ALL');
   const [loading, setLoading] = useState(true);
 
-  const fetchAccuracyStats = async () => {
+  const loadAccuracyStats = () => {
     try {
-      const res = await fetch('/api/accuracy/stats');
-      const data = await res.json();
-      if (data.success) {
-        setStats(data.stats);
-        setHistory(data.recentHistory || []);
-      }
-    } catch (err) {
-      console.warn('Failed to load accuracy stats:', err);
+      const { stats: newStats, recentHistory } = getLocalAccuracyData();
+      setStats(newStats);
+      setHistory(recentHistory);
+    } catch {
+      // safe fallback
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAccuracyStats();
-    const interval = setInterval(fetchAccuracyStats, 10000);
+    loadAccuracyStats();
+    const interval = setInterval(loadAccuracyStats, 10000);
     return () => clearInterval(interval);
   }, []);
 

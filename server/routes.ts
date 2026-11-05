@@ -13,7 +13,7 @@ import {
   initializeAccuracyHistory,
   type PredictionResult
 } from './marketEngine.ts';
-import { generateMarketExplanation } from './geminiService.ts';
+import { generateMarketExplanation, generateMarketExplanationStream } from './geminiService.ts';
 import { computeOpenInterestAnalysis, computeMarketDepth } from '../src/utils/oiDepthEngine.ts';
 
 import path from 'path';
@@ -171,6 +171,63 @@ apiRouter.get('/market/ai-analysis', async (req, res) => {
       error: 'Failed to generate AI analysis',
       details: err?.message
     });
+  }
+});
+
+// POST endpoint accepting client-provided real-time market prediction context
+apiRouter.post('/market/ai-analysis', async (req, res) => {
+  try {
+    const { prediction, indicators, srLevels, priceAction } = req.body;
+    if (prediction && indicators && srLevels && priceAction) {
+      const aiAnalysis = await generateMarketExplanation(prediction, indicators, srLevels, priceAction);
+      return res.json({ success: true, analysis: aiAnalysis });
+    }
+
+    const symbol = (req.body.symbol === '^NSEBANK' ? '^NSEBANK' : '^NSEI') as '^NSEI' | '^NSEBANK';
+    const timeframe = (req.body.timeframe as '1m' | '3m' | '5m' | '15m') || '5m';
+    const { candles, meta } = await fetchNseIndexCandles(symbol, timeframe);
+    const ind = calculateIndicators(candles);
+    const sr = calculateSupportResistance(candles, meta.previousClose);
+    const pa = analyzePriceAction(candles);
+    const pred = generate15MinutePrediction(symbol, candles, ind, sr, pa, timeframe);
+    const aiAnalysis = await generateMarketExplanation(pred, ind, sr, pa);
+
+    res.json({ success: true, analysis: aiAnalysis });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to generate AI analysis', details: err?.message });
+  }
+});
+
+// SSE Streaming AI Analysis Endpoint
+apiRouter.post('/market/ai-analysis/stream', async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  try {
+    let pred = req.body.prediction;
+    let ind = req.body.indicators;
+    let sr = req.body.srLevels;
+    let pa = req.body.priceAction;
+
+    if (!pred || !ind || !sr || !pa) {
+      const symbol = (req.body.symbol === '^NSEBANK' ? '^NSEBANK' : '^NSEI') as '^NSEI' | '^NSEBANK';
+      const timeframe = (req.body.timeframe as '1m' | '3m' | '5m' | '15m') || '5m';
+      const { candles, meta } = await fetchNseIndexCandles(symbol, timeframe);
+      ind = calculateIndicators(candles);
+      sr = calculateSupportResistance(candles, meta.previousClose);
+      pa = analyzePriceAction(candles);
+      pred = generate15MinutePrediction(symbol, candles, ind, sr, pa, timeframe);
+    }
+
+    for await (const chunk of generateMarketExplanationStream(pred, ind, sr, pa)) {
+      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    }
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err: any) {
+    res.write(`data: ${JSON.stringify({ error: err?.message })}\n\n`);
+    res.end();
   }
 });
 

@@ -281,59 +281,7 @@ export default function App() {
     };
   }, [activeSymbol, timeframe, loadMarketFeed]);
 
-  // WebSocket Live Streaming Connection
-  useEffect(() => {
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: any = null;
 
-    const connectWs = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      
-      try {
-        ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-          setIsOnline(true);
-          ws?.send(JSON.stringify({
-            type: 'SUBSCRIBE',
-            symbol: activeSymbol,
-            timeframe
-          }));
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'TICK_BROADCAST' && data.quotes) {
-              if (data.quotes.nifty50) setNiftyQuote(data.quotes.nifty50);
-              if (data.quotes.bankNifty) setBankNiftyQuote(data.quotes.bankNifty);
-              if (data.marketStatus) setMarketStatus(data.marketStatus);
-            }
-          } catch (e) {
-            // ignore
-          }
-        };
-
-        ws.onclose = () => {
-          reconnectTimeout = setTimeout(connectWs, 3000);
-        };
-
-        ws.onerror = () => {
-          ws?.close();
-        };
-      } catch (e) {
-        reconnectTimeout = setTimeout(connectWs, 5000);
-      }
-    };
-
-    connectWs();
-
-    return () => {
-      if (ws) ws.close();
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-    };
-  }, [activeSymbol, timeframe]);
 
   // Notification helper
   const addNotification = (notif: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => {
@@ -491,7 +439,7 @@ export default function App() {
 
           <div className="flex items-center gap-2.5">
             <a
-              href="/api/download/apk"
+              href="/downloads/JIT_PREDICTION_Universal.apk"
               download="JIT_PREDICTION_Universal.apk"
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all transform hover:scale-105 cursor-pointer"
             >

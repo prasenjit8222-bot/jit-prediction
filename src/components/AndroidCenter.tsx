@@ -299,7 +299,7 @@ async def startup_event():
           {/* Primary Universal APK Download Button */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <a
-              href="/api/download/apk"
+              href="/downloads/JIT_PREDICTION_Universal.apk"
               download="JIT_PREDICTION_Universal.apk"
               className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 flex items-center gap-2.5 transition-all transform hover:scale-105 cursor-pointer"
             >
@@ -392,7 +392,7 @@ async def startup_event():
 
             {/* Big Download Button */}
             <a
-              href="/api/download/apk"
+              href="/downloads/JIT_PREDICTION_Universal.apk"
               download="JIT_PREDICTION_Universal.apk"
               className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-emerald-500/25 cursor-pointer transform hover:scale-[1.02]"
             >
