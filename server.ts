@@ -1,6 +1,6 @@
 /**
  * JIT PREDICTION - Full Stack Server
- * Express + WebSocket + Vite Dev Middleware / Production Static Server
+ * Express + WebSocket + Gemini Live API + Vite Dev Middleware / Production Static Server
  */
 import express from 'express';
 import http from 'http';
@@ -10,6 +10,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import dotenv from 'dotenv';
 import { apiRouter } from './server/routes.ts';
 import { fetchNseIndexCandles, getIndianMarketStatus } from './server/marketEngine.ts';
+import { createLiveApiSession } from './server/geminiService.ts';
 
 dotenv.config();
 
@@ -60,8 +61,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// WebSocket Streaming for real-time market updates
-const wss = new WebSocketServer({ server, path: '/ws' });
+// WebSocket Servers:
+// 1. /ws -> Real-time Indian market data updates
+// 2. /live -> Server-Side Gemini Live API voice & real-time interaction
+const wss = new WebSocketServer({ noServer: true });
+const liveWss = new WebSocketServer({ noServer: true });
 
 wss.on('connection', (ws: WebSocket) => {
   // Send initial welcome & market status
@@ -87,14 +91,75 @@ wss.on('connection', (ws: WebSocket) => {
             meta: data.meta,
             lastCandle: data.candles[data.candles.length - 1]
           }));
-        } catch (e) {
+        } catch {
           // silently handle
         }
       }
-    } catch (e) {
+    } catch {
       // ignore malformed ws messages
     }
   });
+});
+
+liveWss.on('connection', async (clientWs: WebSocket) => {
+  try {
+    const session = await createLiveApiSession({
+      onAudioChunk: (audioBase64) => {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(JSON.stringify({ audio: audioBase64 }));
+        }
+      },
+      onTranscript: (text) => {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(JSON.stringify({ transcript: text }));
+        }
+      },
+      onInterrupted: () => {
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(JSON.stringify({ interrupted: true }));
+        }
+      }
+    });
+
+    clientWs.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.audio) {
+          session.sendRealtimeInput({
+            audio: { data: msg.audio, mimeType: 'audio/pcm;rate=16000' }
+          });
+        }
+      } catch {
+        // ignore invalid audio payload
+      }
+    });
+
+    clientWs.on('close', () => {
+      try { session.close(); } catch {}
+    });
+  } catch (err: any) {
+    if (clientWs.readyState === WebSocket.OPEN) {
+      clientWs.send(JSON.stringify({ error: 'Live API session unavailable', details: err?.message }));
+      clientWs.close();
+    }
+  }
+});
+
+server.on('upgrade', (request, socket, head) => {
+  try {
+    const pathname = new URL(request.url || '', `http://${request.headers.host || 'localhost'}`).pathname;
+    if (pathname === '/live') {
+      liveWss.handleUpgrade(request, socket, head, (ws) => {
+        liveWss.emit('connection', ws, request);
+      });
+    } else {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
+  } catch {
+    socket.destroy();
+  }
 });
 
 // Broadcast periodic market tick to connected clients every 5 seconds
@@ -122,7 +187,7 @@ setInterval(async () => {
         client.send(payload);
       }
     }
-  } catch (err) {
+  } catch {
     // broadcast resilience
   }
 }, 5000);
@@ -175,6 +240,7 @@ async function startServer() {
 const shutdown = () => {
   try {
     wss.close();
+    liveWss.close();
     server.close(() => {
       process.exit(0);
     });

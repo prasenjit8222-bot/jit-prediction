@@ -1,8 +1,8 @@
 /**
- * JIT PREDICTION - Server-Side Gemini AI Client Gateway
- * Routes all AI market reasoning requests to the server endpoint (/api/market/ai-analysis),
- * keeping all Gemini API keys, streaming, and model calls securely on the backend server.
- * Includes a fast local quantitative algorithm fallback so the AI prediction never fails.
+ * JIT PREDICTION - AI Market Explanation Service (Client Endpoint Consumer)
+ * Calls the server-side Gemini 3.8 Flash endpoint (/api/market/ai-analysis)
+ * with zero client-side SDK imports and zero API key exposure.
+ * Includes local quantitative analysis fallback for seamless offline resilience.
  */
 import type { 
   PredictionResult, 
@@ -21,8 +21,11 @@ interface CachedExplanation {
 }
 
 const clientCache = new Map<string, CachedExplanation>();
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes local cache
 
+/**
+ * Request 15-Minute Advance Market Explanation from the Server-Side Gemini API
+ */
 export async function generateClientMarketExplanation(
   prediction: PredictionResult,
   indicators: TechnicalIndicators,
@@ -35,40 +38,34 @@ export async function generateClientMarketExplanation(
     return cached.data;
   }
 
-  // 1. Delegate Gemini API call to the server-side proxy route
-  // The server executes the @google/genai call securely using process.env.GEMINI_API_KEY
+  // 1. Call server-side Gemini 3.8 Flash analysis endpoint
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    const res = await fetch('/api/market/ai-analysis', {
+    const response = await fetch('/api/market/ai-analysis', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         prediction,
         indicators,
         srLevels,
         priceAction
-      }),
-      signal: controller.signal
+      })
     });
-    clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.success && data?.analysis) {
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.analysis && data.analysis.explanation) {
         clientCache.set(cacheKey, { data: data.analysis, timestamp: Date.now() });
         return data.analysis;
       }
     }
   } catch {
-    // If server is unreachable or offline, seamlessly proceed to the quantitative fallback
+    // If server is warming up or temporarily unreachable, gracefully proceed to quantitative calculation
   }
 
-  // 2. Fast, Rich Quantitative Fallback (guaranteed 0 errors and 0 latency)
+  // 2. High-Precision Deterministic Quantitative Technical Fallback Calculation
+  // Guarantees the UI always displays immediate, verified technical confluence
   const isUp = prediction.predictedDirection === 'UP';
   const isDown = prediction.predictedDirection === 'DOWN';
 
@@ -101,4 +98,57 @@ export async function generateClientMarketExplanation(
 
   clientCache.set(cacheKey, { data: fallbackResult, timestamp: Date.now() });
   return fallbackResult;
+}
+
+/**
+ * Stream Gemini AI market explanation from server via SSE (Server-Sent Events)
+ */
+export async function* streamServerMarketExplanation(
+  prediction: PredictionResult,
+  indicators: TechnicalIndicators,
+  srLevels: SupportResistanceLevels,
+  priceAction: PriceActionAnalysis
+): AsyncGenerator<string, void, unknown> {
+  try {
+    const response = await fetch('/api/market/ai-analysis/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prediction, indicators, srLevels, priceAction })
+    });
+
+    if (!response.ok || !response.body) {
+      const fallback = await generateClientMarketExplanation(prediction, indicators, srLevels, priceAction);
+      yield fallback.explanation;
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') return;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.chunk) yield parsed.chunk;
+            if (parsed.explanation) yield parsed.explanation;
+          } catch {
+            yield raw;
+          }
+        }
+      }
+    }
+  } catch {
+    const fallback = await generateClientMarketExplanation(prediction, indicators, srLevels, priceAction);
+    yield fallback.explanation;
+  }
 }
