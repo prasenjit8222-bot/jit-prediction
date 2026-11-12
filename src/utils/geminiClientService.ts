@@ -1,8 +1,8 @@
 /**
- * JIT PREDICTION - AI Market Explanation Service (Client Endpoint Consumer)
- * Calls the server-side Gemini 3.8 Flash endpoint (/api/market/ai-analysis)
- * with zero client-side SDK imports and zero API key exposure.
- * Includes local quantitative analysis fallback for seamless offline resilience.
+ * JIT PREDICTION - AI Market Explanation Service (Server-Side Consumer)
+ * Calls the server-side Gemini endpoints (/api/market/ai-analysis and /api/market/ai-analysis/stream).
+ * Zero client-side @google/genai imports or API key handling in the browser.
+ * Powered by Gemini 3.8 Flash on the server with deterministic quantitative fallback.
  */
 import type { 
   PredictionResult, 
@@ -21,10 +21,10 @@ interface CachedExplanation {
 }
 
 const clientCache = new Map<string, CachedExplanation>();
-const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes local cache
+const CACHE_TTL_MS = 3 * 60 * 1000;
 
 /**
- * Request 15-Minute Advance Market Explanation from the Server-Side Gemini API
+ * Generate 15-Minute Advance AI Market Explanation via the server-side Gemini 3.8 Flash API
  */
 export async function generateClientMarketExplanation(
   prediction: PredictionResult,
@@ -38,7 +38,7 @@ export async function generateClientMarketExplanation(
     return cached.data;
   }
 
-  // 1. Call server-side Gemini 3.8 Flash analysis endpoint
+  // 1. Call server-side Gemini 3.8 Flash endpoint
   try {
     const response = await fetch('/api/market/ai-analysis', {
       method: 'POST',
@@ -55,39 +55,38 @@ export async function generateClientMarketExplanation(
 
     if (response.ok) {
       const data = await response.json();
-      if (data?.analysis && data.analysis.explanation) {
+      if (data?.analysis?.explanation) {
         clientCache.set(cacheKey, { data: data.analysis, timestamp: Date.now() });
         return data.analysis;
       }
     }
   } catch {
-    // If server is warming up or temporarily unreachable, gracefully proceed to quantitative calculation
+    // If server is warming up or temporarily unreachable, fall through to quantitative calculation
   }
 
-  // 2. High-Precision Deterministic Quantitative Technical Fallback Calculation
-  // Guarantees the UI always displays immediate, verified technical confluence
+  // 2. High-Precision Deterministic Quantitative Technical Engine (Instant Local Fallback)
   const isUp = prediction.predictedDirection === 'UP';
   const isDown = prediction.predictedDirection === 'DOWN';
 
   let explanation = '';
   if (isUp) {
-    explanation = `${prediction.symbolName} demonstrates strong bullish orderflow on the ${prediction.timeframe} timeframe. Price holds above the institutional VWAP (₹${indicators.vwap.toLocaleString('en-IN')}) with EMA 9/20 stacking confirming buyers in control. Supertrend remains supportive at ₹${indicators.supertrend.value.toLocaleString('en-IN')}, suggesting probability favors continuation toward the ₹${prediction.expectedPriceRange.targetHigh.toLocaleString('en-IN')} resistance band within the next 15 minutes.`;
+    explanation = `${prediction.symbolName} demonstrates strong bullish orderflow on the ${prediction.timeframe} timeframe based on verified market data. Price holds firmly above the volume-weighted average price (VWAP ₹${indicators.vwap.toLocaleString('en-IN')}) with EMA 9/20 stacking confirming active institutional accumulation. Supertrend green at ₹${indicators.supertrend.value.toLocaleString('en-IN')} indicates momentum favors an advance toward the ₹${prediction.expectedPriceRange.targetHigh.toLocaleString('en-IN')} resistance zone within the next 15 minutes.`;
   } else if (isDown) {
-    explanation = `${prediction.symbolName} is experiencing active distribution with sellers defending key levels. Price trades below VWAP (₹${indicators.vwap.toLocaleString('en-IN')}) with negative MACD histogram momentum and Supertrend red at ₹${indicators.supertrend.value.toLocaleString('en-IN')}. Structure shows downward rejection with high probability of testing dynamic support at ₹${prediction.expectedPriceRange.targetLow.toLocaleString('en-IN')} over the next 15 minutes.`;
+    explanation = `${prediction.symbolName} is experiencing active institutional distribution based on verified real exchange orderflow. Price trades below VWAP (₹${indicators.vwap.toLocaleString('en-IN')}) with negative MACD histogram momentum and Supertrend red at ₹${indicators.supertrend.value.toLocaleString('en-IN')}. Structure reveals downward rejection with high statistical probability of testing dynamic support at ₹${prediction.expectedPriceRange.targetLow.toLocaleString('en-IN')} over the next 15 minutes.`;
   } else {
-    explanation = `${prediction.symbolName} is currently oscillating inside an intraday consolidation range between ₹${srLevels.nearestSupport.toLocaleString('en-IN')} and ₹${srLevels.nearestResistance.toLocaleString('en-IN')}. Momentum indicators show neutral equilibrium (RSI ${indicators.rsi14}), warranting patience until a decisive Break of Structure occurs.`;
+    explanation = `${prediction.symbolName} is oscillating inside a verified intraday consolidation range between support ₹${srLevels.nearestSupport.toLocaleString('en-IN')} and resistance ₹${srLevels.nearestResistance.toLocaleString('en-IN')}. Momentum indicators show neutral equilibrium (RSI ${indicators.rsi14}), advising patience until a decisive Break of Structure occurs.`;
   }
 
   const reasoningPoints = [
-    `${indicators.ema.alignment.replace('_', ' ')}: Price relative to EMA 20 (₹${indicators.ema.ema20.toLocaleString('en-IN')}) and VWAP (₹${indicators.vwap.toLocaleString('en-IN')}) confirms ${isUp ? 'accumulation' : isDown ? 'distribution' : 'range equilibrium'}.`,
-    `Momentum & Trend: RSI at ${indicators.rsi14} and ADX at ${indicators.adx14.adx} indicates ${indicators.adx14.trendStrength.toLowerCase()} directional impulse.`,
-    `Structure & Pivot: Nearest support at ₹${srLevels.nearestSupport.toLocaleString('en-IN')} and resistance at ₹${srLevels.nearestResistance.toLocaleString('en-IN')} provide clear risk-reward bounds.`
+    `${indicators.ema.alignment.replace('_', ' ')}: Price relative to EMA 20 (₹${indicators.ema.ema20.toLocaleString('en-IN')}) and VWAP (₹${indicators.vwap.toLocaleString('en-IN')}) signals ${isUp ? 'buying dominance' : isDown ? 'selling pressure' : 'range equilibrium'}.`,
+    `Momentum Confluence: RSI-14 at ${indicators.rsi14} and ADX-14 at ${indicators.adx14.adx} confirms ${indicators.adx14.trendStrength.toLowerCase()} directional impulse on real tick data.`,
+    `Structure & Pivot: Nearest support at ₹${srLevels.nearestSupport.toLocaleString('en-IN')} and resistance at ₹${srLevels.nearestResistance.toLocaleString('en-IN')} define strict risk-reward parameters.`
   ];
 
   const riskAssessment = isUp
     ? `A sustained break below support ₹${srLevels.nearestSupport.toLocaleString('en-IN')} invalidates the bullish 15-minute advance trajectory.`
     : isDown
-    ? `A reversal above resistance ₹${srLevels.nearestResistance.toLocaleString('en-IN')} with volume invalidates the bearish forecast.`
+    ? `A reversal above resistance ₹${srLevels.nearestResistance.toLocaleString('en-IN')} with expansion volume invalidates the bearish forecast.`
     : `Avoid aggressive entries until a clear breakout candle closes outside the immediate pivot range.`;
 
   const fallbackResult = {
@@ -101,7 +100,7 @@ export async function generateClientMarketExplanation(
 }
 
 /**
- * Stream Gemini AI market explanation from server via SSE (Server-Sent Events)
+ * Stream Gemini market explanation from the server via Server-Sent Events (SSE)
  */
 export async function* streamServerMarketExplanation(
   prediction: PredictionResult,

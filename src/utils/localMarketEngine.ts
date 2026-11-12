@@ -65,19 +65,19 @@ interface SymbolMarketState {
 const liveMarketStates: Record<'^NSEI' | '^NSEBANK', SymbolMarketState> = {
   '^NSEI': {
     symbol: '^NSEI',
-    spotPrice: 24412.45,
-    previousClose: 24380.00,
-    dayHigh: 24465.80,
-    dayLow: 24335.20,
+    spotPrice: 25253.00,
+    previousClose: 25255.05,
+    dayHigh: 25301.40,
+    dayLow: 25145.00,
     lastTickTime: Math.floor(Date.now() / 1000),
     candlesByTimeframe: {}
   },
   '^NSEBANK': {
     symbol: '^NSEBANK',
-    spotPrice: 51928.60,
-    previousClose: 51840.00,
-    dayHigh: 52140.50,
-    dayLow: 51760.00,
+    spotPrice: 61299.75,
+    previousClose: 61260.00,
+    dayHigh: 61450.20,
+    dayLow: 61120.00,
     lastTickTime: Math.floor(Date.now() / 1000),
     candlesByTimeframe: {}
   }
@@ -98,7 +98,7 @@ function initializeCandlesForTimeframe(
   const totalCandles = 75;
   const startTime = nowSec - totalCandles * candleSec;
 
-  let price = isNifty ? 24360 : 51820;
+  let price = isNifty ? 25210 : 61220;
 
   for (let i = 0; i < totalCandles; i++) {
     const t = startTime + i * candleSec;
@@ -157,7 +157,7 @@ export function generateLocalMarketFeed(symbol: '^NSEI' | '^NSEBANK', timeframe:
 
   // 2. Dynamic Real-Time Micro-Tick Simulation (Realistic NSE 0.05 tick size)
   // Drift with mean-reversion so price stays in realistic bands
-  const anchorMedian = isNifty ? 24415 : 51930;
+  const anchorMedian = isNifty ? 25253 : 61300;
   const meanReversion = (anchorMedian - state.spotPrice) * 0.04;
   const randomStep = (Math.random() - 0.49) * (isNifty ? 2.5 : 8.0);
   const delta = meanReversion + randomStep;
