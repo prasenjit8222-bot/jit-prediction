@@ -18,8 +18,14 @@ import { computeOpenInterestAnalysis, computeMarketDepth } from '../src/utils/oi
 
 import path from 'path';
 import fs from 'fs';
+import yahooHandler from '../api/yahoo.ts';
 
 export const apiRouter = Router();
+
+// 0. Native Yahoo Finance Proxy Route (mirrors Vercel Serverless Function /api/yahoo)
+apiRouter.all('/yahoo', (req, res) => {
+  return yahooHandler(req, res);
+});
 
 // Initialize historical accuracy validation seed
 initializeAccuracyHistory();

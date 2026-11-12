@@ -40,37 +40,9 @@ interface CachedRealMarket {
 const realMarketCache = new Map<string, CachedRealMarket>();
 
 /**
- * Build CORS Proxy URLs for Yahoo Finance Chart API
- */
-function getYahooProxyUrls(symbol: string, timeframe: string): string[] {
-  // Normalize timeframe for Yahoo Finance: 1m, 3m, 5m, 15m
-  const interval = timeframe === '15m' ? '15m' : timeframe === '3m' ? '3m' : timeframe === '1m' ? '1m' : '5m';
-  const range = '1d';
-  
-  const encodedSymbol = encodeURIComponent(symbol); // %5ENSEI or %5ENSEBANK
-  const yahooUrl1 = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=${interval}&range=${range}`;
-  const yahooUrl2 = `https://query2.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=${interval}&range=${range}`;
-
-  return [
-    // 1. CodeTabs CORS Proxy (User recommended)
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl1)}`,
-    // 2. ThingProxy (User recommended)
-    `https://thingproxy.freeboard.io/fetch/${yahooUrl1}`,
-    // 3. CorsProxy.io
-    `https://corsproxy.io/?${encodeURIComponent(yahooUrl1)}`,
-    // 4. AllOrigins Raw Proxy
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl1)}`,
-    // 5. Query2 with CorsProxy
-    `https://corsproxy.io/?${encodeURIComponent(yahooUrl2)}`,
-    // 6. Direct Query2 (works in WebView and environments with loose CORS)
-    yahooUrl2
-  ];
-}
-
-/**
  * Fetch with timeout using AbortController
  */
-async function fetchWithTimeout(url: string, timeoutMs: number = 3500): Promise<Response> {
+async function fetchWithTimeout(url: string, timeoutMs: number = 4000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -89,35 +61,23 @@ async function fetchWithTimeout(url: string, timeoutMs: number = 3500): Promise<
 }
 
 /**
- * Fetch real Yahoo Finance chart data through the fallback chain
+ * Fetch real Yahoo Finance chart data via native Vercel /api/yahoo serverless endpoint
  */
 async function fetchRealYahooChart(symbol: '^NSEI' | '^NSEBANK', timeframe: string) {
-  const proxyUrls = getYahooProxyUrls(symbol, timeframe);
+  const interval = timeframe === '15m' ? '15m' : timeframe === '3m' ? '3m' : timeframe === '1m' ? '1m' : '5m';
+  const url = `/api/yahoo?symbol=${encodeURIComponent(symbol)}&interval=${interval}&range=1d`;
 
-  for (const url of proxyUrls) {
-    try {
-      const resp = await fetchWithTimeout(url, 3000);
-      if (!resp.ok) continue;
+  try {
+    const resp = await fetchWithTimeout(url, 4000);
+    if (!resp.ok) return null;
 
-      const text = await resp.text();
-      if (!text || text.length < 50) continue;
-
-      // Ensure valid JSON
-      let data: any = null;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        continue;
-      }
-
-      const result = data?.chart?.result?.[0];
-      if (result && result.meta && Array.isArray(result.timestamp) && result.timestamp.length > 0) {
-        return result;
-      }
-    } catch {
-      // Try next proxy silently
-      continue;
+    const data = await resp.json();
+    const result = data?.chart?.result?.[0];
+    if (result && result.meta && Array.isArray(result.timestamp) && result.timestamp.length > 0) {
+      return result;
     }
+  } catch {
+    // Gracefully handled
   }
 
   return null;
